@@ -40,6 +40,9 @@
 		-->
 		<excluded.test.groups>integracion</excluded.test.groups>
 	</properties>
+	<properties>
+  		<sonar.organization>andruw159</sonar.organization>
+	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>me.paulschwarz</groupId>
