@@ -1,12 +1,10 @@
-name: SonarQube Cloud Analysis
+name: SonarCloud analysis
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
   pull_request:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -16,28 +14,40 @@ permissions:
 jobs:
   analysis:
     runs-on: ubuntu-latest
-
+    
     steps:
-
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Full history para mejor análisis
 
-      - name: Set up JDK 21
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
 
-      - name: Build, tests, JaCoCo and SonarQube
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Run tests and generate coverage
+        run: ./mvnw clean verify
+
+      - name: Verify coverage report exists
         run: |
-          ./mvnw clean verify \
-            org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-            -Dsonar.projectKey=andruw159_EAP07-banco-digital-backend \
-            -Dsonar.organization=andruw159 \
-            -Dsonar.host.url=https://sonarcloud.io \
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          if [ -f target/site/jacoco/jacoco.xml ]; then
+            echo "Reporte JaCoCo generado correctamente"
+            ls -lh target/site/jacoco/jacoco.xml
+          else
+            echo "Error: Reporte JaCoCo no encontrado"
+            exit 1
+          fi
+
+      - name: Analyze with SonarCloud
+        uses: SonarSource/sonarcloud-github-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=andruw159_EAP07-banco-digital-backend
+            -Dsonar.organization=andruw159
+            -Dsonar.coverage.jacoco.xmlReportPath=target/site/jacoco/jacoco.xml
