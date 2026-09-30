@@ -37,4 +37,4 @@ jobs:
           args: >
             -Dsonar.projectKey=andruw159_EAP07-banco-digital-backend
             -Dsonar.organization=andruw159
-            -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+            -Dsonar.coverage.jacoco.xmlReportPath=target/site/jacoco/jacoco.xml
