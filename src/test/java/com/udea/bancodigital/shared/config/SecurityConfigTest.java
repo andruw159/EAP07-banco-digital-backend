@@ -3,6 +3,7 @@ package com.udea.bancodigital.shared.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.udea.bancodigital.shared.jwt.JwtAuthenticationFilter;
 import com.udea.bancodigital.shared.jwt.JwtService;
+import com.udea.bancodigital.shared.jwt.RevocacionTokenService;
 import com.udea.bancodigital.usuarios.controller.UsuarioController;
 import com.udea.bancodigital.usuarios.dto.PerfilUsuarioDTO;
 import com.udea.bancodigital.usuarios.dto.RegistroUsuarioResponseDTO;
@@ -57,6 +58,9 @@ class SecurityConfigTest {
 
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+
+    @MockitoBean
+    private RevocacionTokenService revocacionTokenService;
 
     private Usuario usuarioConRol(String rol) {
         Usuario usuario = new Usuario();
@@ -187,5 +191,34 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/ruta-que-no-existe"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.errorCode").value("UNAUTHENTICATED"));
+    }
+
+    @Test
+    void unTokenRevocadoTerminaEn401ConTokenRevokedYElJsonUniforme() throws Exception {
+        tokenValidoDe("CLIENTE");
+        given(revocacionTokenService.estaRevocado(TOKEN)).willReturn(true);
+
+        mockMvc.perform(get("/api/usuarios/me").header("Authorization", "Bearer " + TOKEN))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.errorCode").value("TOKEN_REVOKED"))
+                .andExpect(jsonPath("$.message").value("La sesion fue cerrada. Inicia sesion de nuevo"))
+                .andExpect(jsonPath("$.details").isEmpty())
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void unTokenRevocadoNoImpideUsarUnaRutaPublica() throws Exception {
+        // Un cliente que cerro sesion puede seguir mandando el header viejo
+        // por descuido: eso no debe romperle el registro ni el login.
+        given(jwtService.esTokenValido(TOKEN)).willReturn(true);
+        given(revocacionTokenService.estaRevocado(TOKEN)).willReturn(true);
+        given(usuarioService.registrar(any()))
+                .willReturn(new RegistroUsuarioResponseDTO("El usuario ha sido registrado con éxito.", 1L, CORREO));
+
+        mockMvc.perform(post("/api/usuarios/registro")
+                        .header("Authorization", "Bearer " + TOKEN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registroValido())))
+                .andExpect(status().isCreated());
     }
 }

@@ -17,15 +17,24 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    public static final String PREFIJO_BEARER = "Bearer ";
+
+    // Marca que deja el filtro cuando el token llego revocado, para que
+    // CustomAuthEntryPoint responda TOKEN_REVOKED en lugar de UNAUTHENTICATED.
+    public static final String TOKEN_REVOCADO_ATTR = "tokenRevocado";
+
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+    private final RevocacionTokenService revocacionTokenService;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UsuarioRepository usuarioRepository
+            UsuarioRepository usuarioRepository,
+            RevocacionTokenService revocacionTokenService
     ) {
         this.jwtService = jwtService;
         this.usuarioRepository = usuarioRepository;
+        this.revocacionTokenService = revocacionTokenService;
     }
 
     @Override
@@ -37,14 +46,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authorizationHeader = request.getHeader("Authorization");
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith(PREFIJO_BEARER)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authorizationHeader.substring(7);
+        String token = authorizationHeader.substring(PREFIJO_BEARER.length());
 
         if (!jwtService.esTokenValido(token)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Un token revocado sigue con firma y fecha validas: no se autentica, y
+        // la peticion sigue para que la cadena de seguridad decida. En una ruta
+        // protegida eso termina en 401 TOKEN_REVOKED; en una publica, no estorba.
+        if (revocacionTokenService.estaRevocado(token)) {
+            request.setAttribute(TOKEN_REVOCADO_ATTR, Boolean.TRUE);
             filterChain.doFilter(request, response);
             return;
         }
