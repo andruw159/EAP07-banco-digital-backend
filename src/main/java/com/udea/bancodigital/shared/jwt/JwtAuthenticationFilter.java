@@ -1,6 +1,6 @@
 package com.udea.bancodigital.shared.jwt;
 
-import com.udea.bancodigital.usuarios.repository.UsuarioRepository;
+import com.udea.bancodigital.usuarios.api.UsuarioApi;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,16 +24,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public static final String TOKEN_REVOCADO_ATTR = "tokenRevocado";
 
     private final JwtService jwtService;
-    private final UsuarioRepository usuarioRepository;
+    // Solo la API publica del modulo de usuarios: el filtro vive en shared y no
+    // debe conocer la entidad Usuario ni su repositorio.
+    private final UsuarioApi usuarioApi;
     private final RevocacionTokenService revocacionTokenService;
 
     public JwtAuthenticationFilter(
             JwtService jwtService,
-            UsuarioRepository usuarioRepository,
+            UsuarioApi usuarioApi,
             RevocacionTokenService revocacionTokenService
     ) {
         this.jwtService = jwtService;
-        this.usuarioRepository = usuarioRepository;
+        this.usuarioApi = usuarioApi;
         this.revocacionTokenService = revocacionTokenService;
     }
 
@@ -69,20 +71,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String email = jwtService.extraerEmail(token);
 
-        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
-
-            String rol = usuario.getRol().getNombre();
-
-            System.out.println("ROL DEL USUARIO: " + rol);
-
-            var autoridad = new SimpleGrantedAuthority("ROLE_" + rol);
-
-            System.out.println("AUTORIDAD: " + autoridad.getAuthority());
+        // El rol se lee de la base en cada peticion, no del claim del token:
+        // asi un cambio de rol (HU9) aplica sin esperar a que el token expire.
+        usuarioApi.obtenerRolPorEmail(email).ifPresent(rol -> {
 
             var autenticacion = new UsernamePasswordAuthenticationToken(
-                    usuario.getEmail(),
+                    email,
                     null,
-                    List.of(autoridad)
+                    List.of(new SimpleGrantedAuthority("ROLE_" + rol))
             );
 
             SecurityContextHolder.getContext().setAuthentication(autenticacion);

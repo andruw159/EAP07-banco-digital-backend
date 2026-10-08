@@ -1,7 +1,9 @@
 package com.udea.bancodigital.usuarios.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.udea.bancodigital.shared.config.CustomAccessDeniedHandler;
 import com.udea.bancodigital.shared.config.CustomAuthEntryPoint;
+import com.udea.bancodigital.shared.config.PasswordConfig;
 import com.udea.bancodigital.shared.config.SecurityConfig;
 import com.udea.bancodigital.shared.config.TraceIdFilter;
 import com.udea.bancodigital.shared.entity.Estado;
@@ -48,7 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * base de datos y corre con el resto de la suite.
  */
 @WebMvcTest({AuthController.class, UsuarioController.class})
-@Import({SecurityConfig.class, CustomAuthEntryPoint.class, JwtAuthenticationFilter.class, TraceIdFilter.class,
+@Import({SecurityConfig.class, PasswordConfig.class, CustomAuthEntryPoint.class, CustomAccessDeniedHandler.class, JwtAuthenticationFilter.class, TraceIdFilter.class,
         JwtService.class, RevocacionTokenService.class, AuthService.class})
 @TestPropertySource(properties = {
         "jwt.secret=clave-de-prueba-de-64-caracteres-que-si-alcanza-para-hs512-0",
@@ -85,6 +87,8 @@ class CerrarSesionFlujoTest {
         usuario.setRol(new Rol(1L, "CLIENTE"));
         usuario.setEstado(new Estado(1L, null, "ACTIVO"));
         given(usuarioRepository.findByEmail(CORREO)).willReturn(Optional.of(usuario));
+        // El filtro JWT ya no lee el repositorio: pide el rol a UsuarioApi.
+        given(usuarioService.obtenerRolPorEmail(CORREO)).willReturn(Optional.of("CLIENTE"));
 
         given(usuarioService.consultarPerfil(CORREO))
                 .willReturn(new PerfilUsuarioDTO(1L, "Juan Manuel Tabares", CORREO, "***4321",

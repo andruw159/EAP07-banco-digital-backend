@@ -1,6 +1,7 @@
 package com.udea.bancodigital.usuarios.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.udea.bancodigital.shared.config.CustomAccessDeniedHandler;
 import com.udea.bancodigital.shared.config.CustomAuthEntryPoint;
 import com.udea.bancodigital.shared.jwt.JwtAuthenticationFilter;
 import com.udea.bancodigital.usuarios.dto.LoginRequestDTO;
@@ -47,6 +48,9 @@ class AuthControllerTest {
 
     @MockitoBean
     private CustomAuthEntryPoint customAuthEntryPoint;
+
+    @MockitoBean
+    private CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private Map<String, String> credencialesValidas() {
         Map<String, String> cuerpo = new HashMap<>();
